@@ -1,0 +1,1416 @@
+
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>3D Media Player</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+
+    <style>
+      :root {
+        --font-main: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      }
+
+      body {
+        margin: 0;
+        font-family: var(--font-main);
+        background-color: #222;
+        background-image: radial-gradient(circle at center, #333 0%, #111 100%);
+        color: #333;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+        overflow: hidden;
+        transition: background-image 0.5s;
+      }
+
+      #root {
+        width: 100%;
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+      }
+
+      /* =========================================
+         BASE CONTAINER STRUCTURE
+         ========================================= */
+      .player-container {
+        width: 98%;
+        max-width: 1600px;
+        height: 96vh;
+        display: flex;
+        flex-direction: column;
+        box-sizing: border-box;
+        position: relative;
+        overflow: hidden;
+        transition: all 0.3s ease;
+      }
+
+      .wmp-title-bar {
+        height: 30px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 10px;
+        font-weight: bold;
+        user-select: none;
+        cursor: default;
+        flex-shrink: 0;
+      }
+
+      .wmp-tabs {
+        height: 28px;
+        display: flex;
+        align-items: flex-end;
+        padding: 0 10px;
+        flex-shrink: 0;
+      }
+
+      .btn-tab {
+        border: none;
+        outline: none;
+        cursor: pointer;
+        padding: 0 15px;
+        height: 24px;
+        font-size: 12px;
+        margin-right: 2px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .wmp-main-area {
+        flex: 1;
+        position: relative;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .screen-content {
+          flex: 1;
+          width: 100%;
+          height: 100%;
+          overflow: hidden;
+          position: relative;
+          display: flex;
+          flex-direction: column;
+      }
+
+      .wmp-controls {
+        padding: 10px;
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+        flex-shrink: 0;
+      }
+
+      .btn-wmp {
+        border: none;
+        outline: none;
+        cursor: pointer;
+        display: flex; 
+        align-items: center; 
+        justify-content: center;
+      }
+
+      /* =========================================
+         VISUALIZER OVERLAYS
+         ========================================= */
+      .toggle-bar {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        z-index: 50;
+        display: flex;
+        gap: 8px;
+        background: rgba(0,0,0,0.4);
+        padding: 5px 8px;
+        border-radius: 20px;
+        backdrop-filter: blur(4px);
+        border: 1px solid rgba(255,255,255,0.1);
+      }
+      
+      .overlay-toggle-btn, .overlay-btn {
+        background: transparent;
+        border: none;
+        color: #fff;
+        cursor: pointer;
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: background 0.2s;
+        font-size: 14px;
+      }
+      
+      .overlay-toggle-btn:hover, .overlay-btn:hover {
+        background: rgba(255,255,255,0.2);
+      }
+      
+      .overlay-toggle-btn.active {
+        color: #00FF00;
+        text-shadow: 0 0 5px #00FF00;
+      }
+
+      .now-playing-sidebar {
+          width: 250px;
+          height: 100%;
+          background: rgba(0,0,0,0.85);
+          border-left: 1px solid #444;
+          display: flex;
+          flex-direction: column;
+          z-index: 40;
+          color: #fff;
+          font-family: 'Segoe UI', sans-serif;
+          position: relative;
+      }
+      
+      .np-header {
+          padding: 10px;
+          font-weight: bold;
+          background: rgba(255,255,255,0.1);
+          font-size: 13px;
+          border-bottom: 1px solid #444;
+      }
+      
+      .np-list {
+          flex: 1;
+          overflow-y: auto;
+          font-size: 12px;
+      }
+      
+      .np-item {
+          padding: 6px 10px;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          border-bottom: 1px solid #333;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+      }
+      
+      .np-item:hover {
+          background: rgba(255,255,255,0.1);
+      }
+      
+      .np-item.active {
+          color: #00FF00;
+          font-weight: bold;
+          background: rgba(0, 255, 0, 0.1);
+      }
+      
+      .np-item-icon {
+          width: 20px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          margin-right: 5px;
+      }
+
+      /* =========================================
+         EQUALIZER PANEL
+         ========================================= */
+      .eq-panel {
+        position: absolute;
+        top: 52%; /* Slightly lower than 50% to bias away from top tabs */
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: rgba(0, 0, 0, 0.9);
+        border: 1px solid #666;
+        border-radius: 8px;
+        padding: 15px;
+        z-index: 100;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+        color: #fff;
+        backdrop-filter: blur(10px);
+        min-width: 420px;
+        max-height: 95%; /* Prevent overflowing parent */
+      }
+
+      .eq-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 1px solid #444;
+        padding-bottom: 8px;
+        margin-bottom: 5px;
+      }
+
+      .eq-header span {
+        font-weight: bold;
+        color: #eee;
+      }
+
+      .eq-header button {
+        background: none;
+        border: none;
+        color: #aaa;
+        cursor: pointer;
+        font-size: 16px;
+      }
+
+      .eq-header button:hover {
+        color: #fff;
+      }
+
+      .eq-presets {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 12px;
+      }
+
+      .eq-presets select {
+        background: #333;
+        color: #fff;
+        border: 1px solid #555;
+        padding: 4px;
+        border-radius: 4px;
+        flex: 1;
+      }
+
+      .eq-sliders-container {
+        display: flex;
+        justify-content: space-between;
+        height: 280px; /* Reduced from 320px */
+        padding: 10px 0;
+      }
+
+      .eq-band {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        width: 30px;
+      }
+
+      .eq-slider-wrapper {
+        flex: 1;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        width: 100%;
+      }
+
+      /* Vertical Slider Trick */
+      /* Specificity increased to override global input[type=range] styles */
+      input[type=range].eq-range {
+        -webkit-appearance: none;
+        width: 240px !important;  /* Reduced from 280px */
+        height: 4px !important;
+        background: #444 !important;
+        border-radius: 2px;
+        outline: none;
+        transform: rotate(-90deg);
+        cursor: pointer;
+        margin: 0;
+        border: none !important;
+        box-shadow: none !important;
+      }
+
+      input[type=range].eq-range::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        width: 14px !important;
+        height: 14px !important;
+        border-radius: 50%;
+        background: #00E000 !important;
+        cursor: pointer;
+        border: 2px solid #fff !important;
+        margin-top: -5px; /* Alignment fix */
+        box-shadow: 0 1px 3px rgba(0,0,0,0.5);
+      }
+
+      input[type=range].eq-range::-moz-range-thumb {
+        width: 14px !important;
+        height: 14px !important;
+        border-radius: 50%;
+        background: #00E000 !important;
+        cursor: pointer;
+        border: 2px solid #fff !important;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.5);
+      }
+
+      .eq-label {
+        font-size: 9px;
+        color: #aaa;
+        margin-top: 5px;
+      }
+
+
+      /* =========================================
+         THEME 1: WINDOWS MEDIA PLAYER 10
+         ========================================= */
+      .theme-wmp10 {
+        background: linear-gradient(to bottom, #dbe4f4 0%, #c4d4ed 100%);
+        border-radius: 12px 12px 0 0;
+        box-shadow: 0 0 0 1px #5c84bd, 5px 5px 20px rgba(0,0,0,0.5);
+        font-family: 'Segoe UI', Tahoma, sans-serif;
+      }
+
+      .theme-wmp10 .wmp-title-bar {
+        background: linear-gradient(180deg, #377ae4 0%, #1d53a8 50%, #15458d 51%, #1d5eb9 100%);
+        color: #fff;
+        border-bottom: 1px solid #7facdd;
+        text-shadow: 0 1px 1px rgba(0,0,0,0.5);
+      }
+
+      .theme-wmp10 .wmp-tabs {
+        background: linear-gradient(to bottom, #eef3fa 0%, #dbe4f4 100%);
+        border-bottom: 1px solid #aebcd6;
+      }
+
+      .theme-wmp10 .btn-tab {
+        background: transparent;
+        color: #444;
+        border-radius: 5px 5px 0 0;
+        border: 1px solid transparent;
+      }
+      .theme-wmp10 .btn-tab:hover {
+        background: rgba(255,255,255,0.5);
+      }
+      .theme-wmp10 .btn-tab.active {
+        background: #fff;
+        border: 1px solid #aebcd6;
+        border-bottom: 2px solid #fff;
+        color: #000;
+        font-weight: bold;
+        height: 26px;
+        margin-bottom: -1px; 
+        z-index: 5;
+      }
+
+      .theme-wmp10 .wmp-main-area {
+        background: #000;
+        border-top: 1px solid #8ba1c5;
+        border-bottom: 1px solid #8ba1c5;
+        margin: 0; 
+        box-shadow: inset 0 0 10px rgba(0,0,0,0.5);
+        color: #fff; /* High contrast text for lists */
+      }
+      
+      .theme-wmp10 .wmp-sidebar { color: #fff; }
+      .theme-wmp10 .sidebar-item:hover { background: rgba(255,255,255,0.1); }
+
+      .theme-wmp10 .wmp-controls {
+        background: linear-gradient(to bottom, #dbe4f4 0%, #aebcd6 100%);
+        border-top: 1px solid #fff;
+      }
+
+      .theme-wmp10 .btn-wmp {
+        width: 32px; height: 32px;
+        border-radius: 50%;
+        background: linear-gradient(180deg, #fff 0%, #ddeeff 50%, #beddff 51%, #d2e5fa 100%);
+        border: 1px solid #8ba1c5;
+        box-shadow: 0 2px 3px rgba(0,0,0,0.2);
+        color: #333;
+      }
+      .theme-wmp10 .btn-wmp:hover { filter: brightness(1.1); }
+      .theme-wmp10 .btn-wmp.primary {
+        width: 48px; height: 48px;
+        background: linear-gradient(180deg, #8dc0fc 0%, #4696fc 50%, #2b7ce1 51%, #4592f2 100%);
+        border: 1px solid #1c5ba6;
+        color: #fff;
+      }
+
+      /* =========================================
+         THEME 2: GROOVE MUSIC
+         ========================================= */
+      .theme-groove {
+        background: #000;
+        border: 1px solid #333;
+        border-radius: 0;
+        color: #fff;
+        font-family: 'Segoe UI', sans-serif;
+      }
+
+      .theme-groove .wmp-title-bar {
+        background: #000;
+        font-weight: normal;
+        font-size: 14px;
+      }
+
+      .theme-groove .wmp-tabs {
+        background: #171717;
+        height: 40px;
+        padding: 0;
+        align-items: center;
+      }
+      
+      .theme-groove .btn-tab {
+        background: transparent;
+        color: #999;
+        height: 100%;
+        border-radius: 0;
+        text-transform: uppercase;
+        font-size: 13px;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+      }
+      .theme-groove .btn-tab.active {
+        color: #FF4081; /* Hot Pink */
+        border-bottom: 2px solid #FF4081;
+        background: #252525;
+      }
+
+      .theme-groove .wmp-main-area {
+        background: #121212;
+        margin: 0;
+        border: none;
+        color: #fff;
+      }
+      
+      .theme-groove .wmp-sidebar { color: #fff; }
+      .theme-groove .sidebar-item { color: #aaa; }
+      .theme-groove .sidebar-item.selected { color: #fff; }
+
+      .theme-groove .wmp-controls {
+        background: #1F1F1F;
+        border-top: 1px solid #333;
+        padding: 15px 20px;
+      }
+
+      .theme-groove .btn-wmp {
+        width: 36px; height: 36px;
+        border-radius: 50%;
+        background: transparent;
+        color: #fff;
+        border: 1px solid #555;
+        transition: all 0.2s;
+      }
+      .theme-groove .btn-wmp:hover {
+        background: #333;
+        border-color: #fff;
+      }
+      .theme-groove .btn-wmp.primary {
+        background: #FF4081;
+        border-color: #FF4081;
+        color: #fff;
+        transform: scale(1.1);
+      }
+
+      /* =========================================
+         THEME 3: WINAMP 5 (SILVER)
+         ========================================= */
+      .theme-winamp5 {
+        background: #C0C0C0; 
+        border-radius: 0;
+        box-shadow: 
+            inset 1px 1px 0 #FFFFFF, 
+            inset -1px -1px 0 #000000,
+            inset 2px 2px 0 #DFDFDF,
+            inset -2px -2px 0 #808080;
+        font-family: 'Courier New', monospace;
+        padding: 2px;
+      }
+
+      .theme-winamp5 .wmp-title-bar {
+        background: #292939; 
+        color: #fff;
+        height: 20px;
+        font-size: 11px;
+        letter-spacing: 1px;
+        margin: 2px;
+      }
+
+      .theme-winamp5 .wmp-tabs {
+        height: 20px;
+        margin-top: 4px;
+        padding: 0 5px;
+        background: #C0C0C0;
+      }
+
+      .theme-winamp5 .btn-tab {
+        font-family: 'Tahoma', sans-serif;
+        font-size: 9px;
+        background: #C0C0C0;
+        border: 1px solid #808080;
+        border-bottom: none;
+        box-shadow: inset 1px 1px 0 #fff;
+        border-radius: 3px 3px 0 0;
+        margin-right: 1px;
+        color: #000;
+        height: 18px;
+      }
+      .theme-winamp5 .btn-tab.active {
+        height: 20px;
+        background: #d4d4d4;
+        font-weight: bold;
+        z-index: 10;
+        border-bottom: 1px solid #d4d4d4;
+      }
+
+      .theme-winamp5 .wmp-main-area {
+        background: #000;
+        border: 2px solid #808080;
+        margin: 0;
+        color: #00FF00;
+      }
+
+      .theme-winamp5 .wmp-controls {
+        background: #C0C0C0;
+        padding: 5px 10px;
+      }
+
+      .theme-winamp5 .btn-wmp {
+        width: 28px; height: 28px;
+        border-radius: 0;
+        background: #C0C0C0;
+        box-shadow: inset 1px 1px 0 #fff, inset -1px -1px 0 #000;
+        border: 1px solid #808080; 
+        color: #000;
+        font-size: 10px;
+      }
+      .theme-winamp5 .btn-wmp:active {
+        box-shadow: inset 1px 1px 0 #000, inset -1px -1px 0 #fff;
+        transform: translate(1px, 1px);
+      }
+      .theme-winamp5 .btn-wmp.primary {
+         width: 32px; height: 32px;
+      }
+      
+      .theme-winamp5 .now-playing-sidebar, 
+      .theme-winamp5 .wmp-sidebar,
+      .theme-winamp5 .wmp-playlist-content {
+          background: #000; color: #00FF00;
+          font-family: 'Courier New', monospace;
+      }
+      .theme-winamp5 .np-item.active { background: #004400; color: #fff; }
+
+
+      /* =========================================
+         THEME 4: WINAMP 3 (MODERN)
+         ========================================= */
+      .theme-winamp3 {
+        background: #2a2a2a;
+        background-image: repeating-linear-gradient(90deg, transparent, transparent 2px, rgba(0,0,0,0.1) 2px, rgba(0,0,0,0.1) 4px);
+        border-radius: 20px 20px 8px 8px;
+        box-shadow: 0 10px 30px #000;
+        border: 2px solid #444;
+        font-family: 'Verdana', sans-serif;
+      }
+
+      .theme-winamp3 .wmp-title-bar {
+        background: linear-gradient(to bottom, #444, #222);
+        border-bottom: 1px solid #111;
+        color: #ddd;
+        border-radius: 18px 18px 0 0;
+        padding-left: 15px;
+      }
+
+      .theme-winamp3 .wmp-tabs {
+        background: #222;
+        border-bottom: 1px solid #555;
+      }
+      .theme-winamp3 .btn-tab {
+        background: #333;
+        color: #aaa;
+        border-radius: 10px 10px 0 0;
+        margin: 0 2px;
+      }
+      .theme-winamp3 .btn-tab.active {
+        background: #444;
+        color: #FF9900;
+        border-top: 2px solid #FF9900;
+      }
+
+      .theme-winamp3 .wmp-main-area {
+        background: #111;
+        border-left: none; border-right: none;
+        margin: 0;
+        background-image: linear-gradient(rgba(255,153,0,0.05) 1px, transparent 1px),
+                          linear-gradient(90deg, rgba(255,153,0,0.05) 1px, transparent 1px);
+        background-size: 4px 4px;
+        color: #FF9900; /* Modern Winamp Orange */
+      }
+      
+      .theme-winamp3 .wmp-sidebar { color: #FF9900; }
+      .theme-winamp3 .sidebar-item { color: #aaa; }
+      .theme-winamp3 .sidebar-item.selected { color: #FF9900; }
+
+      .theme-winamp3 .wmp-controls {
+        background: #222;
+        border-radius: 0 0 6px 6px;
+      }
+
+      .theme-winamp3 .btn-wmp {
+        background: linear-gradient(to bottom, #555, #333);
+        color: #ccc;
+        border: 1px solid #111;
+        border-radius: 12px;
+        box-shadow: inset 0 1px 0 rgba(255,255,255,0.2);
+        width: 40px;
+      }
+      .theme-winamp3 .btn-wmp:active { background: #222; }
+      .theme-winamp3 .btn-wmp.primary {
+        border-color: #995500;
+        color: #FF9900;
+        box-shadow: 0 0 5px #FF9900;
+      }
+
+      /* =========================================
+         THEME 5: JETAUDIO 4
+         ========================================= */
+      .theme-jetaudio4 {
+        background: #506070;
+        background-image: linear-gradient(135deg, #607080 0%, #405060 100%);
+        border: 3px solid #8090A0;
+        border-radius: 2px;
+        box-shadow: 0 0 0 1px #203040, 10px 10px 30px rgba(0,0,0,0.7);
+        font-family: 'Arial', sans-serif;
+      }
+
+      .theme-jetaudio4 .wmp-title-bar {
+        background: linear-gradient(to bottom, #8090A0, #405060);
+        color: #fff;
+        text-transform: uppercase;
+        font-size: 11px;
+        letter-spacing: 2px;
+        border-bottom: 1px solid #203040;
+      }
+
+      .theme-jetaudio4 .wmp-tabs {
+        background: #455565;
+        border-bottom: 1px solid #304050;
+        padding-top: 5px;
+      }
+      .theme-jetaudio4 .btn-tab {
+        background: #506070;
+        color: #ccc;
+        transform: skewX(-15deg);
+        border-right: 1px solid #304050;
+        margin: 0;
+      }
+      .theme-jetaudio4 .btn-tab > * { transform: skewX(15deg); }
+      
+      .theme-jetaudio4 .btn-tab.active {
+        background: #304050;
+        color: #00FFFF;
+        box-shadow: inset 0 2px 5px rgba(0,0,0,0.5);
+      }
+
+      .theme-jetaudio4 .wmp-main-area {
+        background: #001122;
+        border: none;
+        border-top: 2px solid #708090;
+        border-bottom: 2px solid #708090;
+        margin: 0;
+        box-shadow: inset 0 0 10px #000;
+        color: #00FFFF; /* Cyan Text */
+      }
+      
+      .theme-jetaudio4 .wmp-sidebar { color: #00FFFF; }
+      .theme-jetaudio4 .sidebar-item { color: #aaa; }
+      .theme-jetaudio4 .sidebar-item.selected { color: #fff; }
+
+      .theme-jetaudio4 .wmp-controls {
+        background: repeating-linear-gradient(
+            45deg,
+            #405060,
+            #405060 5px,
+            #455565 5px,
+            #455565 10px
+        );
+        border-top: 1px solid #203040;
+      }
+
+      .theme-jetaudio4 .btn-wmp {
+        border-radius: 50%;
+        background: radial-gradient(circle at 30% 30%, #a0b0c0, #405060);
+        border: 1px solid #203040;
+        box-shadow: 2px 2px 5px rgba(0,0,0,0.5);
+        color: #fff;
+      }
+      .theme-jetaudio4 .btn-wmp.primary {
+        background: radial-gradient(circle at 30% 30%, #80ffff, #0088cc);
+        box-shadow: 0 0 10px #00FFFF;
+        color: #002244;
+      }
+      
+      /* =========================================
+         THEME 6: WINAMP CLASSIC (REAL)
+         ========================================= */
+      .theme-winamp_classic {
+        background: #282828;
+        border-radius: 0;
+        box-shadow: none; /* Winamp window is sharp */
+        font-family: 'Arial', sans-serif;
+        padding: 0;
+      }
+
+      .theme-winamp_classic .wmp-title-bar {
+        background: #292939; 
+        background-image: repeating-linear-gradient(0deg, #292939 0px, #292939 1px, #000 2px);
+        border-bottom: 1px solid #000;
+        color: #ddd;
+        height: 20px;
+        margin: 0;
+        font-family: 'Arial', sans-serif;
+        font-size: 11px;
+        text-transform: none;
+        letter-spacing: 0;
+      }
+      
+      /* Bevel wrapper for main window */
+      .theme-winamp_classic .wmp-main-area {
+         background: #000;
+         margin: 0;
+         border: 2px solid #555;
+         border-right-color: #eee; border-bottom-color: #eee;
+         color: #00E000;
+      }
+      
+      .theme-winamp_classic .wmp-tabs {
+          background: #282828;
+          height: 20px;
+          margin-top: 2px;
+      }
+      .theme-winamp_classic .btn-tab {
+          font-size: 10px;
+          height: 18px;
+          background: #282828;
+          color: #aaa;
+          font-family: Arial, sans-serif;
+      }
+      .theme-winamp_classic .btn-tab.active {
+          background: #000; color: #00E000;
+          border: 1px solid #555; border-bottom: none;
+      }
+
+      .theme-winamp_classic .wmp-controls {
+          padding: 8px;
+          background: #282828;
+          border-top: 1px solid #555;
+      }
+
+      .theme-winamp_classic .winamp-classic-layout {
+          display: flex; flex-direction: column; gap: 4px;
+          width: 100%; max-width: 600px; margin: 0 auto;
+      }
+      
+      /* LCD Panel */
+      .theme-winamp_classic .winamp-lcd-panel {
+          background: #000;
+          border: 2px solid #555; border-right-color: #fff; border-bottom-color: #fff; /* Sunken */
+          height: 40px;
+          display: flex;
+          align-items: center;
+          padding: 0 10px;
+          margin-bottom: 4px;
+          cursor: default;
+      }
+      .theme-winamp_classic .winamp-lcd-time {
+          font-family: 'VT323', monospace;
+          color: #00E000;
+          font-size: 40px;
+          line-height: 40px;
+          margin-right: 20px;
+      }
+      .theme-winamp_classic .winamp-lcd-marquee {
+          flex: 1;
+          font-family: 'VT323', monospace;
+          color: #00E000;
+          font-size: 18px;
+          white-space: nowrap; overflow: hidden;
+      }
+      .theme-winamp_classic .winamp-lcd-specs {
+          font-family: Arial, sans-serif;
+          font-size: 9px;
+          color: #00E000;
+          margin-left: 10px;
+          display: grid; grid-template-columns: auto auto; gap: 2px;
+      }
+      
+      /* Seek Row */
+      .theme-winamp_classic .winamp-seek-row {
+          height: 12px;
+          display: flex; align-items: center;
+      }
+      
+      /* Control Row */
+      .theme-winamp_classic .winamp-btn-row {
+          display: flex; align-items: center; gap: 2px;
+          margin-top: 4px;
+      }
+      
+      /* Metallic Buttons */
+      .theme-winamp_classic .btn-wmp {
+          width: 23px; height: 18px;
+          background: linear-gradient(to bottom, #d6d6d6, #8e8e8e);
+          border: none;
+          box-shadow: inset 1px 1px 0 #fff, inset -1px -1px 0 #000;
+          border-radius: 0;
+          color: #000;
+          font-size: 9px;
+          display: flex; justify-content: center; align-items: center;
+      }
+      .theme-winamp_classic .btn-wmp:active {
+          box-shadow: inset 1px 1px 0 #000;
+          transform: translate(1px, 1px);
+      }
+      .theme-winamp_classic .btn-wmp.eject {
+          width: 22px; height: 16px; margin-left: 5px;
+      }
+      
+      .theme-winamp_classic .winamp-toggles {
+          display: flex; flex-direction: column; gap: 2px; margin-left: 5px;
+      }
+      .theme-winamp_classic .winamp-toggle {
+          width: 40px; height: 10px;
+          background: #282828;
+          border: 1px solid #555; border-bottom-color: #fff; border-right-color: #fff;
+          font-size: 7px; color: #aaa;
+          display: flex; align-items: center; justify-content: center;
+          cursor: pointer;
+      }
+      .theme-winamp_classic .winamp-toggle.active {
+          background: #444; color: #00E000;
+          border: 1px solid #fff; border-bottom-color: #555; border-right-color: #555;
+          box-shadow: inset 1px 1px 1px #000;
+      }
+
+      /* Sliders */
+      .theme-winamp_classic input[type=range]::-webkit-slider-runnable-track {
+          background: #000; border: 1px solid #555; height: 6px;
+          border-bottom-color: #fff; border-right-color: #fff;
+      }
+      .theme-winamp_classic input[type=range]::-webkit-slider-thumb {
+          -webkit-appearance: none;
+          background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="28" height="10"><rect width="28" height="10" fill="silver"/><rect x="4" y="2" width="20" height="1" fill="black"/><rect x="4" y="4" width="20" height="1" fill="black"/><rect x="4" y="6" width="20" height="1" fill="black"/></svg>');
+          width: 28px; height: 10px;
+          border: 1px solid #000;
+          margin-top: -3px;
+          box-shadow: none; border-radius: 0;
+      }
+      
+      /* Global Slider Overrides */
+      .wmp-slider-container { width: 100%; height: 20px; display: flex; align-items: center; }
+
+      /* =========================================
+         GLOBAL SLIDER VISIBILITY REPAIR
+         ========================================= */
+      input[type=range] {
+        -webkit-appearance: none;
+        appearance: none; /* Standard */
+        width: 100%;
+        background: transparent;
+        height: 20px;
+        padding: 0;
+        margin: 0;
+        cursor: pointer;
+      }
+      input[type=range]:focus { outline: none; }
+
+      /* --- Chrome / Safari / Edge --- */
+      input[type=range]::-webkit-slider-runnable-track {
+        width: 100%;
+        height: 6px; /* Slightly thicker */
+        background: #333; /* High contrast default */
+        border-radius: 3px;
+        border: 1px solid #555;
+        cursor: pointer;
+      }
+      input[type=range]::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        height: 14px; width: 14px;
+        border-radius: 50%;
+        background: #eee;
+        border: 1px solid #000;
+        margin-top: -5px; /* (6 - 14) / 2 = -4, adjust to -5 */
+        box-shadow: 0 1px 2px rgba(0,0,0,0.5);
+      }
+
+      /* --- Firefox --- */
+      input[type=range]::-moz-range-track {
+        width: 100%;
+        height: 6px;
+        background: #333;
+        border-radius: 3px;
+        border: 1px solid #555;
+        cursor: pointer;
+      }
+      input[type=range]::-moz-range-thumb {
+        height: 14px; width: 14px;
+        border-radius: 50%;
+        background: #eee;
+        border: 1px solid #000;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.5);
+      }
+
+      /* -----------------------------------
+         THEME SPECIFIC OVERRIDES
+         ----------------------------------- */
+
+      /* WMP10: Inset Dark Track */
+      .theme-wmp10 input[type=range]::-webkit-slider-runnable-track {
+          background: #444; 
+          border: 1px solid #fff; /* High contrast border */
+          box-shadow: inset 1px 1px 2px rgba(0,0,0,0.8);
+          height: 6px;
+          border-radius: 3px;
+      }
+      .theme-wmp10 input[type=range]::-moz-range-track {
+          background: #444; 
+          border: 1px solid #fff;
+          box-shadow: inset 1px 1px 2px rgba(0,0,0,0.8);
+          height: 6px;
+          border-radius: 3px;
+      }
+      .theme-wmp10 input[type=range]::-webkit-slider-thumb {
+          background: radial-gradient(circle at 30% 30%, #fff, #ccc);
+          border: 1px solid #333;
+          margin-top: -5px; 
+      }
+      .theme-wmp10 input[type=range]::-moz-range-thumb {
+          background: radial-gradient(circle at 30% 30%, #fff, #ccc);
+          border: 1px solid #333;
+      }
+
+      /* Groove: Light Track on Dark BG */
+      .theme-groove input[type=range]::-webkit-slider-runnable-track {
+          background: #555;
+          height: 3px;
+          border: none;
+      }
+      .theme-groove input[type=range]::-moz-range-track {
+          background: #555;
+          height: 3px;
+          border: none;
+      }
+      .theme-groove input[type=range]::-webkit-slider-thumb {
+          background: #FF4081; border: none;
+          margin-top: -4.5px; 
+      }
+      .theme-groove input[type=range]::-moz-range-thumb {
+          background: #FF4081; border: none;
+      }
+
+      /* Winamp 5: Classic Bevelled */
+      .theme-winamp5 input[type=range]::-webkit-slider-runnable-track {
+          background: #000;
+          border: 1px solid #fff; /* White border for high visibility */
+          border-top-color: #808080; border-left-color: #808080;
+          height: 5px;
+      }
+      .theme-winamp5 input[type=range]::-moz-range-track {
+          background: #000;
+          border: 1px solid #fff;
+          border-top-color: #808080; border-left-color: #808080;
+          height: 5px;
+      }
+      .theme-winamp5 input[type=range]::-webkit-slider-thumb {
+          background: #C0C0C0; border: 2px outset #fff;
+          border-radius: 0; width: 12px; height: 12px; margin-top: -5px;
+      }
+      .theme-winamp5 input[type=range]::-moz-range-thumb {
+          background: #C0C0C0; border: 2px outset #fff;
+          border-radius: 0; width: 12px; height: 12px;
+      }
+
+      /* Winamp 3: Orange Track */
+      .theme-winamp3 input[type=range]::-webkit-slider-runnable-track {
+          background: #222; border: 1px solid #666; height: 6px;
+      }
+      .theme-winamp3 input[type=range]::-moz-range-track {
+          background: #222; border: 1px solid #666; height: 6px;
+      }
+      .theme-winamp3 input[type=range]::-webkit-slider-thumb {
+          background: #FF9900; border: 1px solid #000; margin-top: -5px;
+      }
+
+      /* JetAudio 4: Industrial */
+      .theme-jetaudio4 input[type=range]::-webkit-slider-runnable-track {
+          background: #000; border: 1px solid #6c8091; height: 4px;
+      }
+      .theme-jetaudio4 input[type=range]::-moz-range-track {
+          background: #000; border: 1px solid #6c8091; height: 4px;
+      }
+      .theme-jetaudio4 input[type=range]::-webkit-slider-thumb {
+          background: #b0c0d0; border: 1px solid #000;
+          border-radius: 0; transform: rotate(45deg); width: 10px; height: 10px; margin-top: -4px;
+      }
+      .theme-jetaudio4 input[type=range]::-moz-range-thumb {
+          background: #b0c0d0; border: 1px solid #000;
+          border-radius: 0; transform: rotate(45deg); width: 10px; height: 10px;
+      }
+
+      /* =========================================
+         THEME 7: ORGANIC POD (XBOX SKIN REPLICA)
+         ========================================= */
+      .theme-xbox {
+        background: transparent !important;
+        box-shadow: none !important;
+        border: none !important;
+        overflow: visible !important; 
+      }
+
+      .xbox-skin-body {
+          position: relative;
+          width: 760px;
+          height: 520px;
+          display: flex;
+          justify-content: center;
+          align-items: center;
+      }
+
+      /* 1. Metallic Gray Glow (Replaces Green) */
+      .xbox-glow-layer {
+          position: absolute;
+          width: 90%; height: 90%;
+          background: radial-gradient(ellipse at 40% 50%, #a0a0a0 0%, #404040 50%, transparent 70%);
+          opacity: 0.5;
+          filter: blur(40px);
+          z-index: 0;
+          pointer-events: none;
+      }
+
+      /* 2. Main Metal Chassis - Gunmetal Gray */
+      .xbox-metal-pod {
+          position: absolute;
+          width: 720px; height: 480px;
+          /* Refined "Kidney Bean" shape using percentages */
+          border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+          /* To make it asymmetric (larger left side): */
+          border-top-left-radius: 260px 300px;
+          border-bottom-left-radius: 260px 300px;
+          border-top-right-radius: 120px 200px;
+          border-bottom-right-radius: 100px 150px;
+
+          /* Darker Metallic Gray Gradient */
+          background: linear-gradient(135deg, #d9d9d9 0%, #999999 30%, #666666 60%, #333333 100%);
+          box-shadow: 
+              /* Inner recess highlights */
+              inset 2px 2px 5px rgba(255,255,255,0.8),
+              inset -5px -5px 15px rgba(0,0,0,0.8),
+              /* Drop shadow */
+              15px 25px 40px rgba(0,0,0,0.8);
+          z-index: 1;
+          transform: rotate(-3deg); /* Slight organic tilt */
+      }
+
+      /* Glossy overlay to simulate "painted plastic/metal" sheen */
+      .xbox-chassis-shine {
+          position: absolute;
+          top: 10px; left: 10px; right: 10px; bottom: 10px;
+          border-radius: inherit;
+          background: radial-gradient(circle at 30% 20%, rgba(255,255,255,0.7) 0%, transparent 25%),
+                      radial-gradient(circle at 80% 80%, rgba(255,255,255,0.2) 0%, transparent 30%);
+          pointer-events: none;
+          z-index: 2;
+      }
+
+      /* Top Island (Window Controls) */
+      .xbox-top-island {
+          position: absolute;
+          top: 8px; left: 50%;
+          transform: translateX(-50%) rotate(2deg);
+          width: 120px; height: 35px;
+          background: linear-gradient(to bottom, #888, #555);
+          border-radius: 0 0 15px 15px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          z-index: 30;
+          box-shadow: 0 2px 5px rgba(0,0,0,0.6), inset 0 1px 1px rgba(255,255,255,0.5);
+          border: 1px solid #444;
+      }
+      
+      .xbox-win-btn {
+          width: 20px; height: 20px;
+          border-radius: 50%;
+          background: #222;
+          color: #666;
+          font-size: 9px;
+          display: flex; align-items: center; justify-content: center;
+          cursor: pointer;
+          box-shadow: inset 0 0 3px #000;
+          transition: all 0.2s;
+      }
+      .xbox-win-btn:hover { color: #aaff00; text-shadow: 0 0 3px #aaff00; background: #333; }
+
+      /* Control Recess (NEW AREA) */
+      .xbox-control-recess {
+          position: absolute;
+          top: 50px; left: 50%;
+          transform: translateX(-50%);
+          width: 100px; height: 30px;
+          /* "Void" style */
+          background: #111;
+          box-shadow: inset 2px 2px 5px #000;
+          border-radius: 15px;
+          z-index: 25;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 10px;
+          padding: 0 10px;
+      }
+      
+      .xbox-recess-btn {
+          width: 24px; height: 24px;
+          border-radius: 50%;
+          background: linear-gradient(135deg, #444, #222);
+          display: flex; align-items: center; justify-content: center;
+          cursor: pointer;
+          box-shadow: 0 1px 2px rgba(0,0,0,0.8);
+          color: #aaa;
+          font-size: 10px;
+          position: relative;
+      }
+      .xbox-recess-btn:hover { color: #fff; background: #555; }
+      .xbox-recess-btn.active .xbox-led { background: #00FF00; box-shadow: 0 0 5px #00FF00; }
+      
+      .xbox-led {
+          width: 6px; height: 6px; border-radius: 50%;
+          background: #333;
+          box-shadow: inset 0 0 2px #000;
+      }
+      .xbox-led.repeat { border-radius: 0; width: 6px; height: 4px; }
+
+      /* 3. The Jewel Socket (Left) */
+      .xbox-jewel-socket {
+          position: absolute;
+          top: 50%; left: 60px;
+          transform: translateY(-50%);
+          width: 170px; height: 170px;
+          border-radius: 50%;
+          /* Deep inset socket */
+          background: linear-gradient(135deg, #333, #111);
+          box-shadow: 
+            inset 3px 3px 10px rgba(0,0,0,0.9), 
+            inset -1px -1px 2px rgba(255,255,255,0.2),
+            0 0 5px rgba(0,0,0,0.5);
+          display: flex; align-items: center; justify-content: center;
+          z-index: 10;
+      }
+      .xbox-jewel-dome {
+          width: 140px; height: 140px;
+          border-radius: 50%;
+          background: radial-gradient(circle at 35% 35%, #000 0%, #1a1a1a 80%, #000 100%);
+          position: relative;
+          box-shadow: 0 0 20px #000;
+          overflow: hidden;
+          border: 1px solid #000;
+      }
+      /* The X Logo */
+      .xbox-x-logo {
+          position: absolute; top:0; left:0; width:100%; height:100%;
+          background: 
+              conic-gradient(from 40deg, transparent 0deg, transparent 70deg, #188018 85deg, #88cc00 90deg, #188018 95deg, transparent 110deg, transparent 360deg),
+              conic-gradient(from 130deg, transparent 0deg, transparent 70deg, #188018 85deg, #88cc00 90deg, #188018 95deg, transparent 110deg, transparent 360deg),
+              conic-gradient(from 220deg, transparent 0deg, transparent 70deg, #188018 85deg, #88cc00 90deg, #188018 95deg, transparent 110deg, transparent 360deg),
+              conic-gradient(from 310deg, transparent 0deg, transparent 70deg, #188018 85deg, #88cc00 90deg, #188018 95deg, transparent 110deg, transparent 360deg);
+          border-radius: 50%;
+          filter: blur(2px);
+          opacity: 0.9;
+          transform: scale(0.9);
+      }
+      .xbox-jewel-shine {
+          position: absolute; top: 10%; left: 15%; width: 40%; height: 25%;
+          background: linear-gradient(135deg, rgba(255,255,255,0.6) 0%, transparent 100%);
+          border-radius: 50%;
+          transform: rotate(-30deg);
+          filter: blur(3px);
+      }
+
+      /* 4. The Screen Socket (Right) */
+      .xbox-screen-socket {
+          position: absolute;
+          top: 10%; right: 40px;
+          width: 380px; height: 280px;
+          /* Organic Eye Shape */
+          border-radius: 20% 80% 20% 80% / 50% 80% 20% 50%;
+          /* Bezel */
+          background: #111;
+          box-shadow: 
+              inset 5px 5px 20px #000, 
+              inset -2px -2px 5px #333,
+              1px 1px 1px rgba(255,255,255,0.1); 
+          padding: 10px; 
+          z-index: 5;
+          transform: rotate(2deg);
+      }
+
+      .xbox-lens-glass {
+          width: 100%; height: 100%;
+          position: relative;
+          background: #000;
+          border-radius: 20% 80% 20% 80% / 50% 80% 20% 50%;
+          overflow: hidden;
+          box-shadow: inset 0 0 20px #000;
+      }
+      .xbox-screen-glare {
+          position: absolute; top:0; left:0; width:100%; height:40%;
+          background: linear-gradient(to bottom, rgba(255,255,255,0.08) 0%, transparent 100%);
+          border-radius: 50% 50% 0 0;
+          pointer-events: none;
+      }
+
+      /* 5. Bottom Curved Control Strip */
+      .xbox-bottom-curve {
+          position: absolute;
+          bottom: 30px; left: 240px; 
+          width: 380px; height: 60px;
+          display: flex;
+          align-items: center;
+          justify-content: space-evenly;
+          z-index: 20;
+          transform: rotate(-5deg);
+          /* Follow the bottom edge curve visually */
+      }
+
+      .xbox-btn-sliver {
+          /* Metallic sliver button look */
+          width: 60px; height: 20px;
+          background: linear-gradient(to bottom, #d9d9d9 0%, #999 50%, #666 100%);
+          border-radius: 4px;
+          border: 1px solid #444;
+          box-shadow: 
+              0 2px 4px rgba(0,0,0,0.6), 
+              inset 0 1px 2px rgba(255,255,255,0.9);
+          color: #222;
+          font-size: 10px;
+          display: flex; align-items: center; justify-content: center;
+          cursor: pointer;
+          transform: skewX(-10deg); /* Aggressive speed shape */
+          transition: all 0.1s;
+      }
+      .xbox-btn-sliver:hover {
+          filter: brightness(1.2);
+      }
+      .xbox-btn-sliver:active {
+          transform: skewX(-10deg) translateY(2px);
+          box-shadow: inset 0 2px 5px rgba(0,0,0,0.8);
+      }
+      .xbox-btn-sliver.large {
+          width: 80px; height: 28px;
+          font-size: 14px;
+          border-radius: 6px;
+          background: linear-gradient(to bottom, #eee 0%, #bbb 50%, #888 100%);
+      }
+
+      /* In-screen UI */
+      .xbox-lens-ui {
+          position: absolute; bottom: 0; left: 0; right: 0;
+          height: 60px;
+          background: linear-gradient(to top, rgba(0,0,0,0.9) 0%, transparent 100%);
+          padding: 5px 20px;
+          display: flex;
+          flex-direction: column;
+          justify-content: flex-end;
+          color: #aaff00;
+          font-family: 'Arial', sans-serif;
+          font-weight: bold;
+          text-shadow: 0 0 5px rgba(100,255,0,0.5);
+          z-index: 20;
+      }
+      .xbox-ui-row {
+          display: flex; justify-content: space-between; align-items: center;
+          margin-bottom: 5px;
+      }
+      .xbox-ui-row.controls { font-size: 10px; color: #77cc00; }
+      
+      .xbox-marquee {
+          white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+          width: 100%;
+          font-size: 12px;
+          text-align: center;
+      }
+      .vol-bar { display: flex; align-items: center; gap: 5px; }
+      
+      .xbox-vol-slider-wrap { width: 60px; }
+      /* Specific Xbox Green Slider */
+      .theme-xbox input[type=range]::-webkit-slider-runnable-track {
+          background: #333; height: 4px; border: 1px solid #555;
+      }
+      .theme-xbox input[type=range]::-webkit-slider-thumb {
+          background: #aaff00; border: none; width: 10px; height: 10px; margin-top: -3px;
+          box-shadow: 0 0 5px #aaff00;
+      }
+
+      .xbox-scanlines {
+          position: absolute; top:0; left:0; width:100%; height:100%;
+          background: repeating-linear-gradient(0deg, rgba(0,0,0,0.5) 0px, rgba(0,0,0,0.5) 1px, transparent 1px, transparent 2px);
+          pointer-events: none;
+          opacity: 0.4;
+          z-index: 15;
+      }
+
+      /* OVERRIDE: Xbox Theme Toggle Controls Position */
+      /* Move controls to Top Left to avoid being hidden by the bottom bezel */
+      .theme-xbox .toggle-bar {
+          top: 15px;
+          left: 20px;
+          right: auto;
+          flex-direction: column;
+          gap: 5px;
+      }
+
+      /* =========================================
+         THEME MENU
+         ========================================= */
+      .theme-menu {
+        position: absolute;
+        top: 120%;
+        right: 0;
+        background-color: #fff;
+        color: #000;
+        min-width: 200px;
+        border-radius: 4px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+        z-index: 2000;
+        overflow: hidden;
+        border: 1px solid #ccc;
+        font-family: 'Segoe UI', sans-serif;
+        text-align: left;
+      }
+      
+      .theme-option {
+        padding: 10px 15px;
+        cursor: pointer;
+        border-bottom: 1px solid #eee;
+        transition: background 0.2s;
+        font-size: 13px;
+        background-color: #fff;
+        color: #000;
+      }
+      
+      .theme-option:hover {
+        background-color: #f2f2f2;
+        color: #000;
+      }
+
+      .theme-option:last-child {
+        border-bottom: none;
+      }
+
+    </style>
+    <script type="importmap">
+{
+  "imports": {
+    "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
+    "react-dom": "https://esm.sh/react-dom@18.2.0",
+    "react": "https://esm.sh/react@18.2.0",
+    "react/jsx-runtime": "https://esm.sh/react@18.2.0/jsx-runtime",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.1/",
+    "react/": "https://aistudiocdn.com/react@^19.2.1/"
+  }
+}
+</script>
+    <script type="module" crossorigin src="/Media-Player/assets/index-DNhslS05.js"></script>
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>
